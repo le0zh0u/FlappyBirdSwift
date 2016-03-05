@@ -19,6 +19,11 @@ class GameScene: SKScene {
     
     var score = NSInteger()
     
+    let birdCategory: UInt32 = 1 << 0
+    let worldCategory: UInt32 = 1 << 1
+    let pipeCategory: UInt32 = 1 << 2
+    let sorceCategory: UInt32 = 1 << 3
+    
     override func didMoveToView(view: SKView) {
         //设置背景颜色
         skyColor = SKColor(red: 81.0/255.0, green: 192.0/255.0, blue: 201.0/255.0, alpha: 1.0)
@@ -86,7 +91,7 @@ class GameScene: SKScene {
         // init animate
         let anim = SKAction.animateWithTextures([birdTexture1, birdTexture2], timePerFrame: 0.2)
         let flap = SKAction.repeatActionForever(anim)
-        
+        // 设置bird大小，以及处罚未知
         bird = SKSpriteNode(texture: birdTexture1)
         bird.setScale(2.0)
         bird.position = CGPoint(x: self.frame.size.width*0.35, y: self.frame.size.height*0.6)
@@ -98,6 +103,17 @@ class GameScene: SKScene {
         bird.physicsBody = SKPhysicsBody(circleOfRadius: bird.size.height/2.0)
         bird.physicsBody?.dynamic = true
         bird.physicsBody?.allowsRotation = false
+        
+        bird.physicsBody?.categoryBitMask = birdCategory
+        bird.physicsBody?.collisionBitMask = worldCategory | pipeCategory
+        bird.physicsBody?.contactTestBitMask = worldCategory | pipeCategory
+        
+        let ground = SKNode()
+        ground.position = CGPointMake(0, groundTexture.size().height)
+        ground.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(self.frame.size.width, groundTexture.size().height*2.0))
+        ground.physicsBody?.dynamic = false
+        ground.physicsBody?.categoryBitMask = worldCategory
+        self.addChild(ground)
         
     }
     
