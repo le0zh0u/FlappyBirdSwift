@@ -15,6 +15,7 @@ class GameScene: SKScene {
     var pipeTextureUp:SKTexture!
     var pipeTextureDown:SKTexture!
     var movePipesAndRemove:SKAction!
+    var bird:SKSpriteNode!
     
     var score = NSInteger()
     
@@ -76,6 +77,27 @@ class GameScene: SKScene {
             moving.addChild(sprite)
             
         }
+    
+        // init bird picture animate
+        let birdTexture1 = SKTexture(imageNamed: "bird-1")
+        birdTexture1.filteringMode = SKTextureFilteringMode.Nearest
+        let birdTexture2 = SKTexture(imageNamed: "bird-2")
+        birdTexture2.filteringMode = SKTextureFilteringMode.Nearest
+        // init animate
+        let anim = SKAction.animateWithTextures([birdTexture1, birdTexture2], timePerFrame: 0.2)
+        let flap = SKAction.repeatActionForever(anim)
+        
+        bird = SKSpriteNode(texture: birdTexture1)
+        bird.setScale(2.0)
+        bird.position = CGPoint(x: self.frame.size.width*0.35, y: self.frame.size.height*0.6)
+        bird.runAction(flap)
+        self.addChild(bird)
+        
+        self.physicsWorld.gravity = CGVectorMake(0.0, -0.5)
+        
+        bird.physicsBody = SKPhysicsBody(circleOfRadius: bird.size.height/2.0)
+        bird.physicsBody?.dynamic = true
+        bird.physicsBody?.allowsRotation = false
         
     }
     
