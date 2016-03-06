@@ -98,8 +98,10 @@ class GameScene: SKScene {
         bird.runAction(flap)
         self.addChild(bird)
         
+        //小鸟自由落体
+        //定制游戏世界的重力方向
         self.physicsWorld.gravity = CGVectorMake(0.0, -0.5)
-        
+        //设置小鸟遵循物理守则
         bird.physicsBody = SKPhysicsBody(circleOfRadius: bird.size.height/2.0)
         bird.physicsBody?.dynamic = true
         bird.physicsBody?.allowsRotation = false
@@ -119,9 +121,35 @@ class GameScene: SKScene {
     
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
        
+        //通过点击让小鸟上升
+        if moving.speed > 0{
+            for touch:AnyObject in touches{
+                let location = touch.locationInNode(self)
+                //将小鸟的速度设置为0
+                bird.physicsBody?.velocity = CGVectorMake(0, 0)
+                //给小鸟一个向上的瞬时速度
+                bird.physicsBody?.applyImpulse(CGVectorMake(0, 30))
+            }
+        }
     }
-   
+    
+    func clamp(min:CGFloat, max: CGFloat, value:CGFloat)->CGFloat{
+        if value > max{
+            return max
+        } else if value < min {
+            return min
+        }else{
+            return value
+        }
+    }
+    
     override func update(currentTime: CFTimeInterval) {
         /* Called before each frame is rendered */
+        if bird.physicsBody?.velocity.dy<0{
+            bird.zRotation = self.clamp(-1, max: 0.5, value: bird.physicsBody!.velocity.dy*0.003)
+        }else{
+            bird.zRotation = self.clamp(-1, max: 0.5, value: bird.physicsBody!.velocity.dy*0.001)
+        }
+//        bird.zRotation = self.clamp(-1, max: 0.5, value: bird.physicsBody!.velocity.dy*(bird.physicsBody!.velocity.dy<0?0.003:0.001))
     }
 }
