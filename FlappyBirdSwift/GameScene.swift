@@ -25,6 +25,9 @@ class GameScene: SKScene ,SKPhysicsContactDelegate{
     let pipeCategory: UInt32 = 1 << 2
     let scoreCategory: UInt32 = 1 << 3
     
+    var scoreLabelNode: SKLabelNode!
+    var canRestart = false
+    
     override func didMoveToView(view: SKView) {
         self.physicsWorld.contactDelegate = self
         //设置背景颜色
@@ -146,6 +149,14 @@ class GameScene: SKScene ,SKPhysicsContactDelegate{
         let spawnThenDelayForever = SKAction.repeatActionForever(spawnThenDelay)
         //启动定时器
         self.runAction(spawnThenDelayForever)
+        
+        score = 0
+        
+        scoreLabelNode = SKLabelNode(fontNamed: "MarkerFelt-Wide")
+        scoreLabelNode.position = CGPointMake(CGRectGetMidX(self.frame), 3*self.frame.size.height/4)
+        scoreLabelNode.zPosition = 100
+        scoreLabelNode.text = String(score)
+        self.addChild(scoreLabelNode)
     }
     
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
@@ -159,6 +170,8 @@ class GameScene: SKScene ,SKPhysicsContactDelegate{
                 //给小鸟一个向上的瞬时速度
                 bird.physicsBody?.applyImpulse(CGVectorMake(0, 30))
             }
+        }else if canRestart{
+            self.resetScene()
         }
     }
     
@@ -235,11 +248,35 @@ class GameScene: SKScene ,SKPhysicsContactDelegate{
         if moving.speed>0{
             if(contact.bodyA.categoryBitMask & scoreCategory) == scoreCategory || (contact.bodyB.categoryBitMask & scoreCategory) == scoreCategory {
                 //当两个碰撞物体的其中一个掩码为scoreCategory时，即可确定是小鸟通过了管道间的空隙
+                score++
+                //更新score的值并实时更新到文字标签
+                scoreLabelNode.text = String(score)
+                //为scoreLabelNode添加一个动画，每次更新时会弹跳一次
+                scoreLabelNode.runAction(SKAction.sequence([SKAction.scaleTo(1.5, duration: NSTimeInterval(0.1)), SKAction.scaleTo(1.0, duration: NSTimeInterval(0.1))]))
                 
             }else{
                 //否则可以确定小鸟撞到了地面或者管道，游戏结束
                 moving.speed = 0
+                canRestart = true
             }
         }
+    }
+    
+    func resetScene(){
+        bird.position = CGPointMake(self.frame.width/2.5, CGRectGetMidY(self.frame))
+        bird.physicsBody?.velocity = CGVectorMake(0, 0)
+        bird.speed = 1.0
+        bird.zRotation = 0.0
+        
+        pipes.removeAllChildren()
+        
+        canRestart = false
+        
+        score = 0
+        
+        scoreLabelNode.text = String(score)
+        
+        moving.speed = 1
+        
     }
 }
