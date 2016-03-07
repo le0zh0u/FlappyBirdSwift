@@ -8,7 +8,7 @@
 
 import SpriteKit
 
-class GameScene: SKScene {
+class GameScene: SKScene ,SKPhysicsContactDelegate{
     
     var skyColor:SKColor!
     var moving:SKNode!
@@ -16,15 +16,17 @@ class GameScene: SKScene {
     var pipeTextureDown:SKTexture!
     var movePipesAndRemove:SKAction!
     var bird:SKSpriteNode!
+    var pipes:SKNode!
     
     var score = NSInteger()
     
     let birdCategory: UInt32 = 1 << 0
     let worldCategory: UInt32 = 1 << 1
     let pipeCategory: UInt32 = 1 << 2
-    let sorceCategory: UInt32 = 1 << 3
+    let scoreCategory: UInt32 = 1 << 3
     
     override func didMoveToView(view: SKView) {
+        self.physicsWorld.contactDelegate = self
         //设置背景颜色
         skyColor = SKColor(red: 81.0/255.0, green: 192.0/255.0, blue: 201.0/255.0, alpha: 1.0)
         self.backgroundColor = skyColor
@@ -100,7 +102,7 @@ class GameScene: SKScene {
         
         //小鸟自由落体
         //定制游戏世界的重力方向
-        self.physicsWorld.gravity = CGVectorMake(0.0, -0.5)
+        self.physicsWorld.gravity = CGVectorMake(0.0, -5)
         //设置小鸟遵循物理守则
         bird.physicsBody = SKPhysicsBody(circleOfRadius: bird.size.height/2.0)
         bird.physicsBody?.dynamic = true
@@ -117,6 +119,33 @@ class GameScene: SKScene {
         ground.physicsBody?.categoryBitMask = worldCategory
         self.addChild(ground)
         
+        pipes = SKNode()
+        moving.addChild(pipes)
+        
+        pipeTextureUp = SKTexture(imageNamed: "PipeUp")
+        pipeTextureUp.filteringMode = SKTextureFilteringMode.Nearest
+        pipeTextureDown = SKTexture(imageNamed: "PipeDown")
+        pipeTextureDown.filteringMode = SKTextureFilteringMode.Nearest
+        
+        //每个管道的位移距离
+        let distanceToMove = CGFloat(self.frame.size.width+2.0*pipeTextureUp.size().width)
+        //定义移动管道的动作
+        let movePipes = SKAction.moveByX(-distanceToMove, y: 0.0, duration: NSTimeInterval(0.01*distanceToMove))
+        //定义将管道从屏幕移除的动作
+        let removePipes = SKAction.removeFromParent()
+        //将两个动作组合
+        movePipesAndRemove = SKAction.sequence([movePipes, removePipes])
+        
+        //创建一个生成管道的闭包
+        let spawn = SKAction.runBlock({() in self.spawnPipes()})
+        //定义一个延迟时间
+        let delay = SKAction.waitForDuration(NSTimeInterval(2.0))
+        //组合后为一个调用必报内容后延迟2秒的操作
+        let spawnThenDelay = SKAction.sequence([spawn,delay])
+        //无限次重复上面生成的组合内容
+        let spawnThenDelayForever = SKAction.repeatActionForever(spawnThenDelay)
+        //启动定时器
+        self.runAction(spawnThenDelayForever)
     }
     
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
@@ -143,13 +172,74 @@ class GameScene: SKScene {
         }
     }
     
+    func spawnPipes(){
+        //生成一个节点用于管理一对管道
+        let pipePair = SKNode()
+        //设置这个管道的起始位置在屏幕最右侧
+        pipePair.position = CGPointMake(self.frame.size.width+pipeTextureUp.size().width*2, 0)
+        //设置这个节点在陆地和小鸟的后面，在背景（-20）之前
+        pipePair.zPosition = -10
+        
+        //通过随机方法创建一个随机的管道高度
+        let height = UInt32(self.frame.size.height/4)
+        let y = arc4random()%height + height
+        
+        //创建下管道并指定位置
+        let pipeDown = SKSpriteNode(texture: pipeTextureDown)
+        pipeDown.setScale(2.0)
+        pipeDown.position = CGPointMake(0.0, CGFloat(y)+pipeDown.size.height+150.0)
+        
+        //指定下管道的物理属性，并指定碰撞属性和与什么类型精灵发生碰撞时调用委托（contactTestBitMake）
+        pipeDown.physicsBody = SKPhysicsBody(rectangleOfSize: pipeDown.size)
+        pipeDown.physicsBody?.dynamic=false
+        pipeDown.physicsBody?.categoryBitMask = pipeCategory
+        pipeDown.physicsBody?.contactTestBitMask = birdCategory
+        pipePair.addChild(pipeDown)
+        
+        //创建上管道并指定位置
+        let pipeUp = SKSpriteNode(texture: pipeTextureUp)
+        pipeUp.setScale(2.0)
+        pipeUp.position = CGPointMake(0.0, CGFloat(y))
+        
+        pipeUp.physicsBody = SKPhysicsBody(rectangleOfSize: pipeUp.size)
+        pipeUp.physicsBody?.dynamic = false
+        pipeUp.physicsBody?.categoryBitMask = pipeCategory
+        pipeUp.physicsBody?.contactTestBitMask = pipeCategory
+        pipePair.addChild(pipeUp)
+        
+        //常见一个用于检测小鸟是否通过该组管道的节点
+        let contactNode = SKNode()
+        contactNode.position = CGPointMake(pipeDown.size.width + bird.size.width/2, CGRectGetMidY(self.frame))
+        contactNode.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(pipeUp.size.width, self.frame.size.height))
+        contactNode.physicsBody?.dynamic = false
+        contactNode.physicsBody?.categoryBitMask = scoreCategory
+        contactNode.physicsBody?.contactTestBitMask = birdCategory
+        pipePair.addChild(contactNode)
+        
+        //执行预设的动画将管道添加到屏幕
+        pipePair.runAction(movePipesAndRemove)
+        pipes.addChild(pipePair)
+    }
+    
     override func update(currentTime: CFTimeInterval) {
         /* Called before each frame is rendered */
-        if bird.physicsBody?.velocity.dy<0{
+        if bird.physicsBody!.velocity.dy<0{
             bird.zRotation = self.clamp(-1, max: 0.5, value: bird.physicsBody!.velocity.dy*0.003)
         }else{
             bird.zRotation = self.clamp(-1, max: 0.5, value: bird.physicsBody!.velocity.dy*0.001)
         }
 //        bird.zRotation = self.clamp(-1, max: 0.5, value: bird.physicsBody!.velocity.dy*(bird.physicsBody!.velocity.dy<0?0.003:0.001))
+    }
+    
+    func didBeginContact(contact: SKPhysicsContact) {
+        if moving.speed>0{
+            if(contact.bodyA.categoryBitMask & scoreCategory) == scoreCategory || (contact.bodyB.categoryBitMask & scoreCategory) == scoreCategory {
+                //当两个碰撞物体的其中一个掩码为scoreCategory时，即可确定是小鸟通过了管道间的空隙
+                
+            }else{
+                //否则可以确定小鸟撞到了地面或者管道，游戏结束
+                moving.speed = 0
+            }
+        }
     }
 }
